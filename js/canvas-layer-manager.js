@@ -40,33 +40,95 @@ defineModule('canvas-layer-manager.js', {
  * @returns {object} a layer manager instance
  */
 function createLayerManager() {
-  const layers = new Map();       // name -> { canvas, ctx, drawFn, zIndex }
-  const dirtyQueue = [];          // FIFO order of layer names to redraw this pass
-  const queuedSet = new Set();    // dedup guard — a layer only queues once per frame
+  const layers = new Map();
+  const dirtyQueue = [];
+  const queuedSet = new Set();
+
+  let mainCanvas = null;
+  let mainCssWidth = GAME_CONFIG.GAME_WIDTH;
+  let mainCssHeight = GAME_CONFIG.GAME_HEIGHT;
+  let mainDpr = 1;
+
+  function getDpr() {
+    return Math.min(window.devicePixelRatio || 1, GAME_CONFIG.DPR_CAP);
+  }
+
+  function resizeCanvasToCss(canvas, ctx, cssWidth, cssHeight, dpr) {
+    canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
+    canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
+    canvas.style.width = cssWidth + 'px';
+    canvas.style.height = cssHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function resizeAllLayers(cssWidth, cssHeight, dpr) {
+    for (const layer of layers.values()) {
+      resizeCanvasToCss(layer.canvas, layer.ctx, cssWidth, cssHeight, dpr);
+      layer.needsFullRedraw = true;
+    }
+    if (mainCanvas && mainCanvas.ctx) {
+      resizeCanvasToCss(mainCanvas.canvas, mainCanvas.ctx, cssWidth, cssHeight, dpr);
+    }
+  }
 
   return {
     /**
      * Registers a new rendering layer with its own offscreen canvas.
-     * @param {string} name - unique layer id, e.g. 'scene', 'defenders', 'player'
-     * @param {number} zIndex - draw order, lower drawn first (further back)
-     * @param {function} drawFn - (ctx) => void, called only when layer is dirty
+     * @param {string} name
+     * @param {number} zIndex
+     * @param {function} drawFn
      */
     createLayer(name, zIndex, drawFn) {
       if (layers.has(name)) {
         throw new Error(`[canvas-layer-manager.js] Layer "${name}" already exists.`);
       }
       const canvas = document.createElement('canvas');
-      canvas.width = GAME_CONFIG.GAME_WIDTH;
-      canvas.height = GAME_CONFIG.GAME_HEIGHT;
       const ctx = canvas.getContext('2d');
-      layers.set(name, { canvas, ctx, drawFn, zIndex });
-      // New layers start dirty so they get an initial draw.
+      layers.set(name, {
+        canvas,
+        ctx,
+        drawFn,
+        zIndex,
+        needsFullRedraw: true
+      });
+
+      resizeCanvasToCss(canvas, ctx, mainCssWidth, mainCssHeight, mainDpr);
       this.markDirty(name);
     },
 
     /**
-     * Marks a layer as needing redraw this frame. Safe to call multiple
-     * times per frame — the queuedSet guard prevents duplicate work.
+     * Binds the visible canvas size to the manager so compositing and
+     * offscreen buffers stay in sync with the real viewport size.
+     * @param {HTMLCanvasElement} canvas
+     * @param {number} cssWidth
+     * @param {number} cssHeight
+     */
+    bindMainCanvas(canvas, cssWidth, cssHeight) {
+      mainCanvas = {
+        canvas,
+        ctx: canvas.getContext('2d')
+      };
+      mainCssWidth = cssWidth;
+      mainCssHeight = cssHeight;
+      mainDpr = getDpr();
+      resizeAllLayers(mainCssWidth, mainCssHeight, mainDpr);
+    },
+
+    /**
+     * Resizes every layer and the main canvas to a new viewport size.
+     * @param {number} cssWidth
+     * @param {number} cssHeight
+     */
+    resize(cssWidth, cssHeight) {
+      mainCssWidth = cssWidth;
+      mainCssHeight = cssHeight;
+      mainDpr = getDpr();
+      resizeAllLayers(mainCssWidth, mainCssHeight, mainDpr);
+      for (const name of layers.keys()) this.markDirty(name);
+    },
+
+    /**
+     * Marks a layer as needing redraw this frame.
      * @param {string} name
      */
     markDirty(name) {
@@ -85,34 +147,32 @@ function createLayerManager() {
      */
     processDirtyQueue() {
       while (dirtyQueue.length > 0) {
-        const name = dirtyQueue.shift(); // dequeue (FIFO)
+        const name = dirtyQueue.shift();
         queuedSet.delete(name);
         const layer = layers.get(name);
-        if (!layer) continue; // layer removed mid-flight, skip safely
+        if (!layer) continue;
         layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
         layer.drawFn(layer.ctx);
+        layer.needsFullRedraw = false;
       }
     },
 
     /**
      * Blits every layer's offscreen canvas onto the visible canvas, in
-     * zIndex order. This runs every frame regardless of dirty state — the
-     * expensive part (actually redrawing pixels) already happened only for
-     * dirty layers in processDirtyQueue(); this is just cheap compositing.
+     * zIndex order.
      * @param {CanvasRenderingContext2D} mainCtx
      */
     compositeAll(mainCtx) {
       const ordered = [...layers.values()].sort((a, b) => a.zIndex - b.zIndex);
-      mainCtx.clearRect(0, 0, GAME_CONFIG.GAME_WIDTH, GAME_CONFIG.GAME_HEIGHT);
+      mainCtx.setTransform(mainDpr, 0, 0, mainDpr, 0, 0);
+      mainCtx.clearRect(0, 0, mainCssWidth, mainCssHeight);
       for (const layer of ordered) {
-        mainCtx.drawImage(layer.canvas, 0, 0);
+        mainCtx.drawImage(layer.canvas, 0, 0, mainCssWidth, mainCssHeight);
       }
     },
 
     /**
-     * Removes a layer entirely (frees its offscreen canvas for GC — the
-     * "unload" half of "load and unload"). Use when a venue/scene type is
-     * permanently done with for this session (rare — most layers persist).
+     * Removes a layer entirely.
      * @param {string} name
      */
     unloadLayer(name) {
