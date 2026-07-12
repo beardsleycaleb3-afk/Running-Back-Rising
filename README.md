@@ -183,7 +183,7 @@ Each `.js` file should:
 - declare explicit `exports`,
 - and list only the dependencies it truly needs 
 
-That keeps the repo readable and makes the verifier useful instead of noisy [10][2].
+That keeps the repo readable and makes the verifier useful instead of noisy 
 
 ## Notes on naming
 
