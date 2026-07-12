@@ -7,7 +7,7 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./assets/icons/icon-192.png">
 <link rel="apple-touch-icon" href="./assets/icons/icon-192.png">
-<title>Running Back Rising — Layer 5 Test</title>
+<title>Running Back Rising</title>
 <style>
   :root {
     --frame-border: 6px;
@@ -15,52 +15,127 @@
     --btn-size: 50px;
     --frame-color: #c9a227;
   }
-  html, body { margin:0; background:#000; overflow:hidden; touch-action:none; height:100%; }
 
-  /* Outer decorative frame around the whole screen */
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    touch-action: none;
+    background: #000;
+  }
+
   #screenFrame {
-    position:relative;
-    width:100dvw; height:100dvh;
-    max-width:420px; margin:0 auto;
+    position: relative;
+    width: min(100vw, 420px);
+    height: 100dvh;
+    margin: 0 auto;
     border: var(--frame-border) solid var(--frame-color);
-    box-sizing:border-box;
-    background:#000;
-    overflow:hidden;
+    box-sizing: border-box;
+    background: #000;
+    overflow: hidden;
   }
 
-  /* Play area sits above the bottom control border */
   #playArea {
-    position:absolute; top:0; left:0; right:0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     bottom: var(--bottom-border);
-    overflow:hidden;
+    overflow: hidden;
   }
-  canvas#gameCanvas { display:block; width:100%; height:100%; background:#000; touch-action:none; }
 
-  #hud { position:absolute; top:8px; left:8px; right:8px; color:#fff;
-         font-family:monospace; font-size:13px; text-shadow:0 0 3px #000;
-         display:flex; justify-content:space-between; pointer-events:none; }
-  #log { position:absolute; bottom:8px; left:8px; right:8px; color:#eee;
-         font-family:monospace; font-size:11px; background:rgba(0,0,0,.4);
-         padding:4px; max-height:60px; overflow:hidden; pointer-events:none; }
+  canvas#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    touch-action: none;
+  }
 
-  /* Fixed bottom control border — buttons live here, never overlap the field */
+  #hud {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 13px;
+    text-shadow: 0 0 3px #000;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  #log {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    color: #eee;
+    font-family: monospace;
+    font-size: 11px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px;
+    max-height: 60px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 5;
+  }
+
   #bottomBorder {
-    position:absolute; left:0; right:0; bottom:0; height: var(--bottom-border);
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--bottom-border);
     background: linear-gradient(180deg, #1a1a1a, #000);
     border-top: 3px solid var(--frame-color);
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    box-sizing:border-box; padding: 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-sizing: border-box;
+    padding: 0 6px;
+    z-index: 10;
   }
+
   .ability-btn {
-    width: var(--btn-size); height: var(--btn-size); border-radius:50%;
+    width: var(--btn-size);
+    height: var(--btn-size);
+    border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, #3a3a3a, #111);
-    border: 2px solid #666; color:#fff; font-family:monospace; font-size:10px;
-    display:flex; align-items:center; justify-content:center;
-    touch-action:none; position:relative; flex-shrink:0;
+    border: 2px solid #666;
+    color: #fff;
+    font-family: monospace;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    position: relative;
+    flex-shrink: 0;
   }
-  .ability-btn.on-cooldown { opacity:0.4; border-color:#333; }
-  .ability-btn img { width:60%; height:60%; object-fit:contain; pointer-events:none; }
-  .ability-btn .cd-num { position:absolute; bottom:-14px; font-size:9px; color:#e8a33d; }
+
+  .ability-btn.on-cooldown {
+    opacity: 0.4;
+    border-color: #333;
+  }
+
+  .ability-btn img {
+    width: 60%;
+    height: 60%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .ability-btn .cd-num {
+    position: absolute;
+    bottom: -14px;
+    font-size: 9px;
+    color: #e8a33d;
+  }
 </style>
 </head>
 <body>
@@ -116,7 +191,6 @@
   <script src="./js/master-contract.js"></script>
   <script src="./js/pwa-lifecycle.js"></script>
   <script>
-    // --- Register this inline bootstrap block as a non-modular piece -------
     registerNonModular('index.html:inline-boot', {
       what: 'Wires canvas, HUD text, ability buttons, and swipe/tap input to the game core',
       where: 'index.html — bottom <script> block, runs after all module scripts'
@@ -134,18 +208,15 @@
       where: 'sw.js — generated from index.html script tags + assets/ folder contents'
     });
 
-    registerServiceWorker(); // pwa-lifecycle.js — safe no-op on unsupported browsers
+    registerServiceWorker();
 
     const canvas = document.getElementById('gameCanvas');
     const core = createRenderCore(canvas);
     core.stateManager.logPlay('Kickoff — welcome to the field.');
-    core.start(); // async: loads real assets first, silhouettes fill any gaps
+    core.start();
 
-    runMasterAudit(); // full project audit: JS contracts + non-modular pieces + load order
+    runMasterAudit();
 
-    // --- HUD text + ability button visuals, ticked every frame -------------
-    // (abilityController now lives inside render-core.js's loop — core.abilityController
-    // is ticked there every fixed-step frame, this just reads its status for display)
     function updateHudText() {
       document.getElementById('clockDisplay').textContent = core.stateManager.clock.formatted();
       document.getElementById('stateDisplay').textContent = core.stateManager.current;
@@ -157,7 +228,11 @@
         btn.classList.toggle('on-cooldown', !status.ready);
         let cdEl = btn.querySelector('.cd-num');
         if (!status.ready) {
-          if (!cdEl) { cdEl = document.createElement('span'); cdEl.className = 'cd-num'; btn.appendChild(cdEl); }
+          if (!cdEl) {
+            cdEl = document.createElement('span');
+            cdEl.className = 'cd-num';
+            btn.appendChild(cdEl);
+          }
           cdEl.textContent = Math.ceil(status.cooldownRemainingSec);
         } else if (cdEl) {
           cdEl.remove();
@@ -168,10 +243,9 @@
     }
     updateHudText();
 
-    // --- Ability buttons: tap to activate ----------------------------------
     document.querySelectorAll('.ability-btn').forEach(btn => {
       btn.addEventListener('pointerdown', (e) => {
-        e.stopPropagation(); // don't let this bleed into the swipe handler below
+        e.stopPropagation();
         const id = btn.dataset.ability;
         const activated = core.abilityController.activate(id);
         if (activated) {
@@ -180,36 +254,35 @@
       });
     });
 
-    // --- Swipe left/right on the play area = move exactly one lane -----------
-    // (unless the between-play overlay is up, in which case a tap selects a
-    // Smart Play card instead — see core.handleOverlayTap())
     const playArea = document.getElementById('playArea');
     let swipeStartX = null, swipeStartY = null;
     const SWIPE_THRESHOLD_PX = 30;
 
-    /** Converts a pointer event's client coords into canvas logical-pixel space. */
     function toCanvasCoords(e) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = GAME_CONFIG.GAME_WIDTH / rect.width;
       const scaleY = GAME_CONFIG.GAME_HEIGHT / rect.height;
-      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
     }
 
     playArea.addEventListener('pointerdown', (e) => {
       swipeStartX = e.clientX;
       swipeStartY = e.clientY;
     });
+
     playArea.addEventListener('pointerup', (e) => {
       if (swipeStartX === null) return;
       const dx = e.clientX - swipeStartX;
-      swipeStartX = null; swipeStartY = null;
+      swipeStartX = null;
+      swipeStartY = null;
 
-      // Overlay active (between plays / skill menu)? Route the tap there first.
       const { x, y } = toCanvasCoords(e);
       if (core.handleOverlayTap(x, y)) return;
 
-      // Otherwise, normal lane-swipe during live play.
-      if (Math.abs(dx) < SWIPE_THRESHOLD_PX) return; // treat as a tap, ignore
+      if (Math.abs(dx) < SWIPE_THRESHOLD_PX) return;
       const direction = dx > 0 ? 1 : -1;
       core.physicsWorld.requestLaneChange(direction);
     });
