@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="46" fill="#151515" stroke="#8a8a8a" stroke-width="4"/>
+  <path d="M28 60 Q28 40 45 38 L68 38 Q78 38 78 50 L78 62 Q78 68 70 68 L34 68 Q28 68 28 60 Z" fill="#8a8a8a"/><line x1="35" y1="68" x2="35" y2="76" stroke="#8a8a8a" stroke-width="4"/><line x1="45" y1="68" x2="45" y2="78" stroke="#8a8a8a" stroke-width="4"/><line x1="55" y1="68" x2="55" y2="78" stroke="#8a8a8a" stroke-width="4"/><line x1="65" y1="68" x2="65" y2="76" stroke="#8a8a8a" stroke-width="4"/>
+  <text x="50" y="90" font-family="monospace" font-size="12" fill="#8a8a8a" text-anchor="middle">T1</text>
+</svg>
