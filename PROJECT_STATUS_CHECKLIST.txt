@@ -1,0 +1,110 @@
+RUNNING BACK RISING — PROJECT STATUS CHECKLIST
+Generated from the current repo state.
+
+====================================================================
+PART 1: CODE MODULES — WHAT'S BUILT (all syntax-checked + smoke-tested)
+====================================================================
+
+FOUNDATION
+[x] contract.js          - module contract system, throws on bad load order
+[x] master-contract.js   - head oversight, canonical load order + non-modular registry
+[x] config.js            - all tunable consts/LUTs (7 lanes, 30fps target, 128x256 player, etc)
+[x] clock.js             - quarter/game clock, play-clock countdown
+[x] game-state.js        - strict FSM (MENU/PLAYING/BETWEEN_PLAYS/SKILL_MENU/PAUSED/GAME_OVER)
+
+CAREER / STORY
+[x] career-progression.js - full 12-run table, Run 1 (HS) through Run 12 (Hall of Fame)
+[x] story.js               - 4-act structure, per-run intro + 4 outcome tiers (DOMINANT/SOLID/SHAKY/STUFFED)
+
+ASSETS
+[x] asset-manifest.js    - single source of truth for every asset path
+[x] sprite-loader.js     - loads real files, silhouette fallback for anything missing
+[x] ui-backdrops.js      - maps the 8 backdrop photos to menu/skill/loading/draft screens
+
+DATA STRUCTURES
+[x] logic-gates.js       - AND/OR/NOT/XOR/NAND/NOR, used for gear set-bonus conditions
+[x] trie.js               - prefix tree for fast gear/asset key lookup
+
+RPG SYSTEMS
+[x] gear.js               - cleats/shoulder pads/gloves/elbow pads, 4 tiers each, 3 set bonuses
+[x] unlockables.js        - 4 fictional Hall of Fame runners, career-stat unlock conditions
+[x] rewards.js            - weighted loot table, streak bonuses, 3 special round types
+[x] save.js               - versioned localStorage save/load — NOW ACTUALLY WIRED IN (was built but unused until this pass)
+[x] smart-play.js         - 3-option between-play call system, NOW ACTUALLY BIASES SPAWN + REWARDS (was inert until this pass)
+[x] abilities.js          - Ghost/Tank/Turbo/Power/Speed/Tricky Run, full cooldown state machine
+
+GAMEPLAY SIMULATION
+[x] collision-resolution.js - exact tackle/touchdown resolution math
+[x] spawner.js              - fixed-capacity defender pool, dequeue-style slot reuse, Smart-Play-biased
+[x] physics.js              - REAL simulation: movement, effect merging, collision, run completion
+
+RENDERING
+[x] canvas-layer-manager.js - per-agent offscreen canvases, dirty-queue redraw
+[x] render-core.js          - orchestrator, projection math, fixed-step loop, now loads real save data
+[x] render-scene.js         - sky/horizon/stadium/grass, "field always rolling" behavior
+[x] render-defenders.js     - draws by TEAM (not position), reads spawner pool
+[x] render-player.js        - fixed 128x256 mascot, always frontmost
+[x] overlay-ui.js           - between-play Smart Play card overlay, own canvas layer, depth-scaled cards
+
+NOT YET BUILT
+[x] Gear-equip UI screen — DONE this pass: tap "MANAGE GEAR" from the between-play
+    overlay, cycle each slot through owned tiers, tap DONE to confirm + save
+[x] Draft day team assignment — DONE this pass: fires automatically the first time
+    you reach Run 6 (start of Pro Season), picks from the 3 non-opponent fictional
+    teams, logged in play-by-play, persisted to save
+[x] Reward application to save — DONE this pass: loot/XP from every run now actually
+    lands in saveData (was rolled by rewards.js but silently discarded before)
+[ ] Skill tree spend-points UI (xp-skills data model referenced in config.js, no screen)
+[ ] audio.js / music.js (no audio system exists at all yet)
+[ ] ai-coach.js hint system (designed in early planning doc, not built)
+[ ] menus.js (main menu, career-complete screen — draft day now handled inline, no separate screen needed)
+[ ] pwa-lifecycle.js (service worker registration, offline support, install prompt)
+[ ] entities/player.js standalone file (currently folded into physics.js)
+
+BUG FOUND + FIXED THIS PASS
+[x] game-state.js FSM crash: SKILL_MENU's play-clock auto-resume tried to transition
+    directly to PLAYING, which wasn't a legal transition — would have crashed the
+    game the first time anyone spent 8+ seconds in the gear screen. Found by actually
+    building and testing the gear screen (SKILL_MENU was previously unreachable, so
+    this was a dormant bug). Fixed + verified with a real crash-reproduction test.
+
+====================================================================
+PART 2: ASSETS — WHAT YOU HAVE
+====================================================================
+[x] 8 backdrop photos (assets/backdrops/1-8.jpeg)
+[x] 9 grass tiles (assets/grass/grass0-8.png)
+[x] 8 endzone images (assets/endzones/endzone0-7.png)
+[x] Defender art for 5 teams, team-based (not position-based):
+    - bears/1-4.png (Granite Bears)
+    - cowboys/1-4.png (Lonestar Cowboys)
+    - miners/1-3.png (Sierra Miners)
+    - panthers/1-2.png (Piedmont Panthers)
+    - vikings/1-4.png (Northland Vikings)
+    - generic/1-2.png (HS/college/practice, no named opponent)
+[x] Player sprite: 1 frame only (Riverside Tigers, assets/sprites/player/running/1.png)
+[x] Raw item + powerup sprite SHEETS (not yet sliced into individual icons)
+[x] 31 real generated SVG icons:
+    - 16 gear icons (cleats/shoulder pads/gloves/elbow pads x 4 tiers)
+    - 6 ability icons (Ghost/Tank/Turbo/Power/Speed/Tricky)
+    - 4 action button icons (sprint/juke-left/juke-right/stiff-arm)
+    - 4 skill tree node icons (Speed/Power/Vision/Hands)
+    - 1 coach portrait
+
+====================================================================
+PART 3: ASSETS — WHAT'S STILL MISSING
+====================================================================
+[ ] Player run-cycle frames for 7 of 8 teams (only Riverside Tigers has 1 frame)
+[ ] Hall of Fame runner sprites (Bullet McCoy, Iron Henrietta, Ghost Oyelaran, The Legend)
+[ ] Stadium art: open stadium, enclosed stadium, HS bleachers (currently silhouette fallback)
+[ ] Item sheet needs slicing into individual collectible icons
+[ ] Powerup sheet needs slicing into individual icons
+[ ] ALL audio: 7 SFX files, 4 music loops — zero audio files exist in the repo
+
+====================================================================
+PART 4: THIS SESSION'S UPLOADED IMAGES (4 files, not yet processed)
+====================================================================
+You uploaded 4 real run-cycle sprite sheets (back-view, 8-frame) — confirmed as an
+EXAMPLE only, not yet approved for processing. Flagged concern: one has "SANDERS" #21
+in real Detroit Lions blue/silver — real player likeness + real team colors, would need
+recoloring + name removal before use, per this project's fictional-parody-only rule.
+Waiting on your go-ahead before doing real background removal / recoloring / slicing.

@@ -1,433 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1">
-    <meta name="theme-color" content="#1a4d2e">
-    <meta name="description" content="A 3D segmented runner game with RPG progression. Play as a football running back rising through 10 chapters.">
-    <meta name="keywords" content="runner, game, RPG, 3D, football, mobile, touch, android">
-    <meta name="author" content="Running-Back-Rising">
-    
-    <link rel="manifest" href="./manifest.json">
-    <link rel="icon" type="image/jpeg" href="./assets/icon_192.jpg">
-    <link rel="shortcut icon" href="./assets/icon_192.jpg">
-    
-    <title>Running-Back-Rising</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-            touch-action: none;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Running Back Rising — Layer 5 Test</title>
+<style>
+  :root {
+    --frame-border: 6px;
+    --bottom-border: 80px;
+    --btn-size: 50px;
+    --frame-color: #c9a227;
+  }
+  html, body { margin:0; background:#000; overflow:hidden; touch-action:none; height:100%; }
 
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            position: fixed;
-        }
+  /* Outer decorative frame around the whole screen */
+  #screenFrame {
+    position:relative;
+    width:100dvw; height:100dvh;
+    max-width:420px; margin:0 auto;
+    border: var(--frame-border) solid var(--frame-color);
+    box-sizing:border-box;
+    background:#000;
+    overflow:hidden;
+  }
 
-        body {
-            font-family: 'Roboto', 'Arial', sans-serif;
-            background: #1a4d2e;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #fff;
-        }
+  /* Play area sits above the bottom control border */
+  #playArea {
+    position:absolute; top:0; left:0; right:0;
+    bottom: var(--bottom-border);
+    overflow:hidden;
+  }
+  canvas#gameCanvas { display:block; width:100%; height:100%; background:#000; touch-action:none; }
 
-        #gameContainer {
-            width: 100vw;
-            height: 100dvh;
-            max-width: 350px;
-            max-height: 550px;
-            position: relative;
-            background: #000;
-            border: 3px solid #FFD700;
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+  #hud { position:absolute; top:8px; left:8px; right:8px; color:#fff;
+         font-family:monospace; font-size:13px; text-shadow:0 0 3px #000;
+         display:flex; justify-content:space-between; pointer-events:none; }
+  #log { position:absolute; bottom:8px; left:8px; right:8px; color:#eee;
+         font-family:monospace; font-size:11px; background:rgba(0,0,0,.4);
+         padding:4px; max-height:60px; overflow:hidden; pointer-events:none; }
 
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #hud {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .hud-top {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-        }
-
-        .stat-box {
-            background: rgba(0, 0, 0, 0.7);
-            padding: 5px 10px;
-            border: 1px solid #FFD700;
-            border-radius: 4px;
-        }
-
-        .hud-bottom {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            text-align: center;
-            font-size: 12px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-        }
-
-        #chapterInfo {
-            position: absolute;
-            top: 40px;
-            left: 10px;
-            right: 10px;
-            color: white;
-            font-size: 12px;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 4px;
-            border-radius: 4px;
-            z-index: 10;
-        }
-
-        #playerStats {
-            position: absolute;
-            bottom: 40px;
-            left: 10px;
-            color: white;
-            font-size: 11px;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 8px;
-            border-radius: 4px;
-            z-index: 10;
-        }
-
-        #mainMenu, #upgradeScreen, #gameOverScreen, #leaderboardScreen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            pointer-events: auto;
-            text-align: center;
-        }
-
-        #mainMenu.active, #upgradeScreen.active, #gameOverScreen.active, #leaderboardScreen.active {
-            display: flex;
-        }
-
-        .menu-title {
-            font-size: 32px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: #FFD700;
-            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.9);
-        }
-
-        .menu-content {
-            max-height: 70%;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            width: 90%;
-        }
-
-        .stat-upgrade {
-            background: rgba(50, 50, 50, 0.8);
-            border: 1px solid #666;
-            padding: 10px;
-            margin: 8px 0;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .stat-upgrade.disabled {
-            opacity: 0.5;
-        }
-
-        .stat-upgrade button {
-            background: #00aaff;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .stat-upgrade button:disabled {
-            background: #666;
-            cursor: not-allowed;
-        }
-
-        button {
-            background: #FFD700;
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            font-size: 14px;
-            font-weight: bold;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px;
-            transition: all 0.3s;
-            pointer-events: auto;
-        }
-
-        button:hover {
-            background: #FFF;
-            transform: scale(1.05);
-        }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .info-text {
-            font-size: 12px;
-            color: #ccc;
-            margin: 10px 0;
-            line-height: 1.4;
-        }
-
-        .stat-display {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            width: 100%;
-            margin: 10px 0;
-        }
-
-        .stat-item {
-            background: rgba(30, 30, 30, 0.8);
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-
-        .stat-item strong {
-            color: #FFD700;
-        }
-
-        #leaderboardContent {
-            max-width: 300px;
-            max-height: 350px;
-            overflow-y: auto;
-            text-align: left;
-            font-size: 12px;
-        }
-
-        .leaderboard-row {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 8px;
-            margin: 4px 0;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-        }
-    </style>
+  /* Fixed bottom control border — buttons live here, never overlap the field */
+  #bottomBorder {
+    position:absolute; left:0; right:0; bottom:0; height: var(--bottom-border);
+    background: linear-gradient(180deg, #1a1a1a, #000);
+    border-top: 3px solid var(--frame-color);
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    box-sizing:border-box; padding: 0 6px;
+  }
+  .ability-btn {
+    width: var(--btn-size); height: var(--btn-size); border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #3a3a3a, #111);
+    border: 2px solid #666; color:#fff; font-family:monospace; font-size:10px;
+    display:flex; align-items:center; justify-content:center;
+    touch-action:none; position:relative; flex-shrink:0;
+  }
+  .ability-btn.on-cooldown { opacity:0.4; border-color:#333; }
+  .ability-btn img { width:60%; height:60%; object-fit:contain; pointer-events:none; }
+  .ability-btn .cd-num { position:absolute; bottom:-14px; font-size:9px; color:#e8a33d; }
+</style>
 </head>
 <body>
-    <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
-        
-        <div id="hud">
-            <div class="hud-top">
-                <div class="stat-box">Score: <span id="scoreDisplay">0</span></div>
-                <div class="stat-box">⭐ <span id="starDisplay">0</span></div>
-                <div class="stat-box">HP: <span id="hpDisplay">100</span></div>
-            </div>
-            <div class="hud-bottom">
-                <div id="meterInfo">Distance: <span id="distanceDisplay">0</span>m</div>
-                <div id="comboDisplay" style="display:none; color: #FFD700; font-size: 16px; margin-top: 5px;">
-                    🔥 COMBO x<span id="comboCount">0</span>
-                </div>
-            </div>
-        </div>
-
-        <div id="chapterInfo">Chapter 1: High School Freshman (Era 1)</div>
-        
-        <div id="playerStats">
-            <div class="stat-item"><strong>HP:</strong> 100</div>
-            <div class="stat-item"><strong>Speed:</strong> 30%</div>
-            <div class="stat-item"><strong>Dodge:</strong> 100%</div>
-            <div class="stat-item"><strong>Stars:</strong> 0</div>
-        </div>
-
-        <div id="mainMenu" class="active">
-            <div class="menu-title">Running Back Rising</div>
-            <div style="font-size: 14px; color: #FFD700; margin-bottom: 30px;">3D RPG Runner</div>
-            <div id="chapterInfoMenu"></div>
-            <div class="stat-display" id="playerStatsMenu"></div>
-            <div class="info-text">👆 Swipe left/right to dodge obstacles<br>⭐ Collect stars, avoid defenders</div>
-            <div class="button-group">
-                <button onclick="game.startGame()">START GAME</button>
-                <button onclick="game.toggleLeaderboard()">TOP SCORES</button>
-            </div>
-        </div>
-
-        <div id="upgradeScreen">
-            <div class="menu-title">Upgrade Stats</div>
-            <div class="info-text" id="upgradeInfo"></div>
-            <div class="menu-content" id="upgradeOptions"></div>
-            <div class="button-group">
-                <button onclick="game.startGame()">Next Chapter</button>
-            </div>
-        </div>
-
-        <div id="gameOverScreen">
-            <div class="menu-title">Chapter Failed</div>
-            <div class="info-text" id="gameOverStats"></div>
-            <div class="button-group">
-                <button onclick="game.showMainMenu()">Main Menu</button>
-                <button onclick="game.startGame()">Retry Chapter</button>
-            </div>
-        </div>
-
-        <div id="leaderboardScreen">
-            <div class="menu-title">Top Scores</div>
-            <div id="leaderboardContent"></div>
-            <div class="button-group">
-                <button onclick="game.toggleLeaderboard()">Back</button>
-            </div>
-        </div>
+  <div id="screenFrame">
+    <div id="playArea">
+      <canvas id="gameCanvas"></canvas>
+      <div id="hud">
+        <span id="clockDisplay">Q1 1:30</span>
+        <span id="stateDisplay">PLAYING</span>
+      </div>
+      <div id="log"></div>
     </div>
+    <div id="bottomBorder">
+      <button class="ability-btn" data-ability="GHOST_MODE"><img src="assets/ui/icons/ability_ghost.svg" alt="Ghost"></button>
+      <button class="ability-btn" data-ability="TANK_MODE"><img src="assets/ui/icons/ability_tank.svg" alt="Tank"></button>
+      <button class="ability-btn" data-ability="TURBO_MODE"><img src="assets/ui/icons/ability_turbo.svg" alt="Turbo"></button>
+      <button class="ability-btn" data-ability="POWER_RUN"><img src="assets/ui/icons/ability_power.svg" alt="Power"></button>
+      <button class="ability-btn" data-ability="SPEED_RUN"><img src="assets/ui/icons/ability_speed.svg" alt="Speed"></button>
+      <button class="ability-btn" data-ability="TRICKY_RUN"><img src="assets/ui/icons/ability_tricky.svg" alt="Trick"></button>
+    </div>
+  </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="./js/config.js"></script>
-    <script src="./js/modules.js"></script>
-    <script src="./js/audio.js"></script>
-    <script src="./js/powerups.js"></script>
-    <script src="./js/visual-polish.js"></script>
-    <script src="./js/game.js"></script>
-    
-    <script>
-        let game;
-        
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeGame);
-        } else {
-            initializeGame();
+  <script src="./js/contract.js"></script>
+  <script src="./js/config.js"></script>
+  <script src="./js/clock.js"></script>
+  <script src="./js/game-state.js"></script>
+  <script src="./js/career-progression.js"></script>
+  <script src="./js/story.js"></script>
+  <script src="./js/asset-manifest.js"></script>
+  <script src="./js/sprite-loader.js"></script>
+  <script src="./js/ui-backdrops.js"></script>
+  <script src="./js/logic-gates.js"></script>
+  <script src="./js/trie.js"></script>
+  <script src="./js/gear.js"></script>
+  <script src="./js/unlockables.js"></script>
+  <script src="./js/rewards.js"></script>
+  <script src="./js/save.js"></script>
+  <script src="./js/smart-play.js"></script>
+  <script src="./js/overlay-ui.js"></script>
+  <script src="./js/abilities.js"></script>
+  <script src="./js/collision-resolution.js"></script>
+  <script src="./js/spawner.js"></script>
+  <script src="./js/physics.js"></script>
+  <script src="./js/canvas-layer-manager.js"></script>
+  <script src="./js/render-core.js"></script>
+  <script src="./js/render-scene.js"></script>
+  <script src="./js/render-defenders.js"></script>
+  <script src="./js/render-player.js"></script>
+  <script src="./js/master-contract.js"></script>
+  <script>
+    // --- Register this inline bootstrap block as a non-modular piece -------
+    registerNonModular('index.html:inline-boot', {
+      what: 'Wires canvas, HUD text, ability buttons, and swipe/tap input to the game core',
+      where: 'index.html — bottom <script> block, runs after all module scripts'
+    });
+    registerNonModular('index.html:css-frame', {
+      what: 'Outer decorative frame + fixed 80px bottom control border CSS',
+      where: 'index.html — <style> block'
+    });
+
+    const canvas = document.getElementById('gameCanvas');
+    const core = createRenderCore(canvas);
+    core.stateManager.logPlay('Kickoff — welcome to the field.');
+    core.start(); // async: loads real assets first, silhouettes fill any gaps
+
+    runMasterAudit(); // full project audit: JS contracts + non-modular pieces + load order
+
+    // --- HUD text + ability button visuals, ticked every frame -------------
+    // (abilityController now lives inside render-core.js's loop — core.abilityController
+    // is ticked there every fixed-step frame, this just reads its status for display)
+    function updateHudText() {
+      document.getElementById('clockDisplay').textContent = core.stateManager.clock.formatted();
+      document.getElementById('stateDisplay').textContent = core.stateManager.current;
+      document.getElementById('log').textContent = core.stateManager.playByPlayLog.slice(-3).join(' | ');
+
+      document.querySelectorAll('.ability-btn').forEach(btn => {
+        const id = btn.dataset.ability;
+        const status = core.abilityController.getStatus(id);
+        btn.classList.toggle('on-cooldown', !status.ready);
+        let cdEl = btn.querySelector('.cd-num');
+        if (!status.ready) {
+          if (!cdEl) { cdEl = document.createElement('span'); cdEl.className = 'cd-num'; btn.appendChild(cdEl); }
+          cdEl.textContent = Math.ceil(status.cooldownRemainingSec);
+        } else if (cdEl) {
+          cdEl.remove();
         }
-        
-        function initializeGame() {
-            try {
-                console.log('[Game] Initializing Running Back Rising...');
-                game = new Game();
-                console.log('[Game] ✅ Game initialized successfully');
-            } catch (error) {
-                console.error('[Game] ❌ Failed to initialize game:', error);
-                alert('Failed to start game. Please refresh the page.');
-            }
+      });
+
+      requestAnimationFrame(updateHudText);
+    }
+    updateHudText();
+
+    // --- Ability buttons: tap to activate ----------------------------------
+    document.querySelectorAll('.ability-btn').forEach(btn => {
+      btn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); // don't let this bleed into the swipe handler below
+        const id = btn.dataset.ability;
+        const activated = core.abilityController.activate(id);
+        if (activated) {
+          core.stateManager.logPlay(`${ABILITY_CATALOG[id].label} activated!`);
         }
-        
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then((registration) => {
-                        console.log('[PWA] Service Worker registered successfully:', registration);
-                        setInterval(() => {
-                            registration.update().then(() => {
-                                if (registration.waiting) {
-                                    console.log('[PWA] Update available');
-                                }
-                            });
-                        }, 60000);
-                    })
-                    .catch((error) => {
-                        console.log('[PWA] Service Worker registration failed:', error);
-                    });
-                
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    console.log('[PWA] New service worker activated');
-                });
-                
-                navigator.serviceWorker.addEventListener('message', (event) => {
-                    if (event.data && event.data.type === 'SW_READY') {
-                        console.log('[PWA] Service Worker ready for offline use');
-                    }
-                });
-            });
-        }
-        
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('[PWA] Install prompt ready');
-            e.preventDefault();
-            deferredPrompt = e;
-        });
-        
-        window.addEventListener('appinstalled', () => {
-            console.log('[PWA] App installed successfully');
-            deferredPrompt = null;
-        });
-        
-        function requestFullscreen() {
-            const elem = document.documentElement;
-            if (elem.requestFullscreen) {
-                elem.requestFullscreen().catch(() => {
-                    console.log('[PWA] Fullscreen denied');
-                });
-            } else if (elem.webkitRequestFullscreen) {
-                elem.webkitRequestFullscreen();
-            }
-        }
-        
-        document.addEventListener('touchstart', requestFullscreen, { once: true });
-        window.addEventListener('focus', () => {
-            if (document.fullscreenElement === null) {
-                requestFullscreen();
-            }
-        });
-        
-        if (screen.orientation) {
-            screen.orientation.lock('portrait-primary')
-                .catch((error) => {
-                    console.log('[PWA] Orientation lock failed:', error);
-                });
-        }
-        
-        window.addEventListener('beforeunload', (e) => {
-            if (game && game.gameState === 'playing') {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
-    </script>
+      });
+    });
+
+    // --- Swipe left/right on the play area = move exactly one lane -----------
+    // (unless the between-play overlay is up, in which case a tap selects a
+    // Smart Play card instead — see core.handleOverlayTap())
+    const playArea = document.getElementById('playArea');
+    let swipeStartX = null, swipeStartY = null;
+    const SWIPE_THRESHOLD_PX = 30;
+
+    /** Converts a pointer event's client coords into canvas logical-pixel space. */
+    function toCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = GAME_CONFIG.GAME_WIDTH / rect.width;
+      const scaleY = GAME_CONFIG.GAME_HEIGHT / rect.height;
+      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+    }
+
+    playArea.addEventListener('pointerdown', (e) => {
+      swipeStartX = e.clientX;
+      swipeStartY = e.clientY;
+    });
+    playArea.addEventListener('pointerup', (e) => {
+      if (swipeStartX === null) return;
+      const dx = e.clientX - swipeStartX;
+      swipeStartX = null; swipeStartY = null;
+
+      // Overlay active (between plays / skill menu)? Route the tap there first.
+      const { x, y } = toCanvasCoords(e);
+      if (core.handleOverlayTap(x, y)) return;
+
+      // Otherwise, normal lane-swipe during live play.
+      if (Math.abs(dx) < SWIPE_THRESHOLD_PX) return; // treat as a tap, ignore
+      const direction = dx > 0 ? 1 : -1;
+      core.physicsWorld.requestLaneChange(direction);
+    });
+  </script>
 </body>
 </html>
