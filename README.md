@@ -1,9 +1,9 @@
 Running-Back-Risning
-Give me a read me that describes how it should be
+
 
 # Running Back Rising Structure
 
-This project is organized as a contract-driven JavaScript game with a flat `/js` code root, a separate `assets/` tree, and a single HTML entrypoint that bootstraps everything in load order. The goal is to keep rendering, timing, UI, and page glue separated so the game stays debuggable on a low-end phone [1][2][3].
+This project is organized as a contract-driven JavaScript game with a flat `/js` code root, a separate `assets/` tree, and a single HTML entrypoint that bootstraps everything in load order. The goal is to keep rendering, timing, UI, and page glue separated so the game stays debuggable on a low-end phone.
 
 ## Root layout
 
@@ -17,7 +17,7 @@ This project is organized as a contract-driven JavaScript game with a flat `/js`
 └── js/
 ```
 
-`index.html` is the browser entrypoint and only contains the canvas shell, HUD, buttons, and script tags. `assets/` stores all images, icons, sheets, and UI art. `js/` stores every runtime file in the contract system [2][3].
+`index.html` is the browser entrypoint and only contains the canvas shell, HUD, buttons, and script tags. `assets/` stores all images, icons, sheets, and UI art. `js/` stores every runtime file in the contract system 
 
 ## Asset layout
 
@@ -48,7 +48,7 @@ assets/
         └── sheet.png
 ```
 
-`assets/backdrops/`, `assets/endzones/`, and `assets/grass/` are world/backdrop art. `assets/ui/gear/`, `assets/ui/icons/`, and `assets/ui/skilltrees/` are interface art. `assets/sprites/...` holds animated or sheet-based gameplay art like defenders, player frames, items, and powerups [4][5][6].
+`assets/backdrops/`, `assets/endzones/`, and `assets/grass/` are world/backdrop art. `assets/ui/gear/`, `assets/ui/icons/`, and `assets/ui/skilltrees/` are interface art. `assets/sprites/...` holds animated or sheet-based gameplay art like defenders, player frames, items, and powerups 
 
 ## JavaScript layout
 
@@ -99,7 +99,7 @@ js/
 └── pwa-lifecycle.js
 ```
 
-The lowest-level files should load first, and the page bootstrap should load last. The idea is that utilities and shared data come first, then time/state, then render infrastructure, then gameplay systems, then page glue [7][8][9].
+The lowest-level files should load first, and the page bootstrap should load last. The idea is that utilities and shared data come first, then time/state, then render infrastructure, then gameplay systems, then page glue 
 
 ## Recommended order
 
@@ -149,7 +149,7 @@ Here is the order I would use in `index.html`:
 42. `master-contract.js`
 43. `pwa-lifecycle.js`
 
-That order matches the contract approach: every module declares what it depends on, and the HTML script order ensures those dependencies already exist when the module loads [10][1][2].
+That order matches the contract approach: every module declares what it depends on, and the HTML script order ensures those dependencies already exist when the module loads 
 
 ## Responsibility map
 
@@ -163,7 +163,7 @@ That order matches the contract approach: every module declares what it depends 
 - `canvas-layer-manager.js` owns offscreen layers and dirty redraws.
 - `render-accumulator.js`, `render-orchestrator.js`, and `render-composer.js` split timing, sequencing, and visible composition.
 - `render-scene.js`, `render-defenders.js`, and `render-player.js` are the render agents.
-- `nonmodule.js` is the bootstrap glue outside the module graph [7][11][12].
+- `nonmodule.js` is the bootstrap glue outside the module graph.
 
 ## Asset-to-code wiring
 
@@ -173,7 +173,7 @@ That order matches the contract approach: every module declares what it depends 
 - `render-defenders.js` should use defender sprites under `assets/sprites/defenders/`.
 - `render-player.js` should use player animation frames.
 - `overlay-ui.js` and `menus.js` should use `assets/ui/...` and `assets/icons/`.
-- `ui-backdrops.js` can centralize reusable background art for menus and overlays [4][5][6].
+- `ui-backdrops.js` can centralize reusable background art for menus and overlays 
 
 ## Module style rules
 
@@ -181,17 +181,17 @@ Each `.js` file should:
 - call `defineModule(...)` at the top,
 - answer what/how/when/why/where/who,
 - declare explicit `exports`,
-- and list only the dependencies it truly needs [10][9][3].
+- and list only the dependencies it truly needs 
 
 That keeps the repo readable and makes the verifier useful instead of noisy [10][2].
 
 ## Notes on naming
 
-`lets.js` is optional and only makes sense if it has a specific responsibility. I would not create files just to mirror JavaScript keywords unless they hold a real architectural role [13][14][3].
+`lets.js` is optional and only makes sense if it has a specific responsibility. I would not create files just to mirror JavaScript keywords unless they hold a real architectural role 
 
-`nonmodule.js` is the right place for DOM bootstrap, pointer handlers, resize hooks, service worker registration, and other glue that should not live inside gameplay code [15][16][17].
+`nonmodule.js` is the right place for DOM bootstrap, pointer handlers, resize hooks, service worker registration, and other glue that should not live inside gameplay code 
 
 ## In short
 
-This should be a flat `/js` source tree with strict load order, a clear `assets/` tree by content type, and a single bootstrap file that wires the page to the contract modules. The payoff is that the game stays modular enough to debug on real hardware without turning into a bundler-heavy mess [1][2][3].
+This should be a flat `/js` source tree with strict load order, a clear `assets/` tree by content type, and a single bootstrap file that wires the page to the contract modules. The payoff is that the game stays modular enough to debug on real hardware without turning into a bundler-heavy mess
 
