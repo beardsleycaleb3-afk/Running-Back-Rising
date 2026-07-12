@@ -32,13 +32,6 @@ defineModule('render-core.js', {
   dependsOn: ['contract.js', 'config.js', 'clock.js', 'game-state.js', 'sprite-loader.js', 'canvas-layer-manager.js', 'career-progression.js', 'physics.js', 'overlay-ui.js', 'smart-play.js', 'abilities.js', 'save.js', 'menus.js', 'skill-tree.js', 'audio.js']
 });
 
-/**
- * Projects a world-depth value (0 = at player, 1 = at horizon) into
- * screen scale + Y position. Shared by every rendering agent so they all
- * agree on the exact same "camera."
- * @param {number} z
- * @returns {{scale:number, screenY:number}}
- */
 function projectZ(z) {
   const t = Math.min(Math.max(z, 0), 1);
   const horizonY = GAME_CONFIG.GAME_HEIGHT * GAME_CONFIG.HORIZON_Y_RATIO;
@@ -47,15 +40,6 @@ function projectZ(z) {
   return { scale, screenY };
 }
 
-/**
- * Converts a lane index (integer range is -(LANE_COUNT-1)/2 .. +(LANE_COUNT-1)/2,
- * e.g. -3..3 for 7 lanes — can be fractional mid-slide) plus depth into a
- * screen X coordinate. Lanes converge toward the horizon (narrower spread
- * the farther away, per LANE_FAR_SPREAD_PX vs LANE_NEAR_SPREAD_PX).
- * @param {number} lane
- * @param {number} z
- * @returns {number} screenX
- */
 function laneToX(lane, z) {
   const t = Math.min(Math.max(z, 0), 1);
   const spread = GAME_CONFIG.LANE_NEAR_SPREAD_PX +
@@ -65,82 +49,68 @@ function laneToX(lane, z) {
 
 const projection = Object.freeze({ projectZ, laneToX });
 
-/**
- * @param {HTMLCanvasElement} canvasEl
- * @returns {object} the render core instance
- */
 function createRenderCore(canvasEl) {
-  const dpr = Math.min(window.devicePixelRatio || 1, GAME_CONFIG.DPR_CAP);
-  canvasEl.width = GAME_CONFIG.GAME_WIDTH * dpr;
-  canvasEl.height = GAME_CONFIG.GAME_HEIGHT * dpr;
-  canvasEl.style.width = GAME_CONFIG.GAME_WIDTH + 'px';
-  canvasEl.style.height = GAME_CONFIG.GAME_HEIGHT + 'px';
-  const mainCtx = canvasEl.getContext('2d');
-  mainCtx.scale(dpr, dpr);
-
+  const layerManager = createLayerManager();
   const spriteLoader = createSpriteLoader();
   const sceneRenderer = createSceneRenderer('high_school_field', spriteLoader);
   const defenderRenderer = createDefenderRenderer(spriteLoader);
   const playerRenderer = createPlayerRenderer(spriteLoader);
   const stateManager = createGameStateManager();
-  const layerManager = createLayerManager();
   const overlayUI = createOverlayUI();
   const menuScreens = createMenuScreens(spriteLoader);
   const abilityController = createAbilityController();
   const audioSystem = createAudioSystem();
   const smartPlayState = createSmartPlayState();
 
-  // --- Real save data, loaded once at boot. Career progress, owned gear,
-  // equipped loadout, and lifetime stats all come from here now — not
-  // hardcoded demo values. A brand-new player gets createDefaultSave()
-  // (Run 1, no gear equipped) via save.js's own fallback. -------------------
   const saveData = loadGame();
   let currentChapterIndex = Math.max(0, Math.min(CAREER_RUNS.length - 1, saveData.career.chaptersCompleted));
   let physicsWorld = createPhysicsWorld(currentChapterIndex, saveData.gear.equipped, abilityController, null, saveData);
-  physicsWorld.player.teamKey = saveData.career.teamKey; // null until drafted — render-player.js already handles that
-
-  // --- Register one offscreen canvas layer per rendering agent, PLUS the
-  // overlay layer on top at the highest zIndex. -----------------------------
-  layerManager.createLayer('scene', 0, (ctx) => {
-    sceneRenderer.render(ctx);
-  });
-  layerManager.createLayer('defenders', 1, (ctx) => {
-    defenderRenderer.render(ctx, physicsWorld.spawner.pool, projection);
-  });
-  layerManager.createLayer('player', 2, (ctx) => {
-    playerRenderer.render(ctx, physicsWorld.player, projection);
-  });
-  layerManager.createLayer('overlay', 3, (ctx) => {
-    // Blank (transparent, does nothing) unless we're actually paused between
-    // plays — the layer manager clears this canvas before every redraw, so
-    // simply not drawing anything here IS "no overlay visible."
-    if (stateManager.current === GAME_STATES.BETWEEN_PLAYS) {
-      overlayUI.render(ctx, smartPlayState, stateManager.clock.playClockRemaining);
-    } else if (stateManager.current === GAME_STATES.SKILL_MENU) {
-      overlayUI.renderGearScreen(ctx, saveData);
-    }
-  });
-  layerManager.createLayer('menu', 4, (ctx) => {
-    if (stateManager.current === GAME_STATES.MENU) {
-      menuScreens.renderMainMenu(ctx, saveData);
-    } else if (stateManager.current === GAME_STATES.GAME_OVER && stateManager.careerComplete) {
-      menuScreens.renderCareerComplete(ctx, saveData);
-    }
-  });
+  physicsWorld.player.teamKey = saveData.career.teamKey;
 
   let lastTime = 0;
   let accumulator = 0;
   const fixedDtMs = GAME_CONFIG.FIXED_DT_MS;
   const fixedDtSec = fixedDtMs / 1000;
 
-  /**
-   * Applies whatever loot/XP a run produced to the persistent save — this is
-   * the piece that was completely missing: rewards.js rolled loot every run,
-   * but nothing ever touched saveData with it until now.
-   * @param {object} eventResult - from resolveTackleCollision or resolveTouchdown
-   */
+  let mainCtx = null;
+  let cssWidth = 0;
+  let cssHeight = 0;
+  let resizePending = true;
+
+  function getDpr() {
+    return Math.min(window.devicePixelRatio || 1, GAME_CONFIG.DPR_CAP);
+  }
+
+  function getViewportSize() {
+    const rect = canvasEl.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width || window.innerWidth || GAME_CONFIG.GAME_WIDTH));
+    const height = Math.max(1, Math.floor(rect.height || window.innerHeight || GAME_CONFIG.GAME_HEIGHT));
+    return { width, height };
+  }
+
+  function applyCanvasSize() {
+    const dpr = getDpr();
+    const size = getViewportSize();
+    cssWidth = size.width;
+    cssHeight = size.height;
+
+    canvasEl.width = Math.max(1, Math.floor(cssWidth * dpr));
+    canvasEl.height = Math.max(1, Math.floor(cssHeight * dpr));
+    canvasEl.style.width = cssWidth + 'px';
+    canvasEl.style.height = cssHeight + 'px';
+
+    mainCtx = canvasEl.getContext('2d');
+    mainCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    layerManager.bindMainCanvas(canvasEl, cssWidth, cssHeight);
+    sceneRenderer.setVenue('high_school_field');
+    layerManager.resize(cssWidth, cssHeight);
+
+    resizePending = false;
+  }
+
   function applyRewardsToSave(eventResult) {
-    if (!eventResult.loot) return; // tackled results don't carry loot, only TDs do
+    if (!eventResult.loot) return;
     const { type, detail } = eventResult.loot;
     if (type === 'stars') {
       saveData.stats.totalStars += detail.amount;
@@ -148,8 +118,6 @@ function createRenderCore(canvasEl) {
       saveData.xp.skillPointsAvailable += detail.amount;
     } else if (type === 'gear') {
       saveData.gear.owned[detail.slot].push(detail.tier);
-      // Auto-equip if this tier beats what's currently equipped in that slot —
-      // simplest possible equip logic until a real gear-equip screen exists.
       if (detail.tier > saveData.gear.equipped[detail.slot]) {
         saveData.gear.equipped[detail.slot] = detail.tier;
         stateManager.logPlay(`Equipped ${detail.slot} tier ${detail.tier} — upgrade!`);
@@ -166,13 +134,9 @@ function createRenderCore(canvasEl) {
     }
   }
 
-  /**
-   * The draft — assigns the player to a team the first time they cross into
-   * PRO_GAMES (chapterIndex 5). Never overwrites an existing pick on replay.
-   */
   function maybeRunDraft() {
-    if (saveData.career.teamKey) return; // already drafted
-    if (currentChapterIndex < 5) return;   // not at PRO_GAMES yet
+    if (saveData.career.teamKey) return;
+    if (currentChapterIndex < 5) return;
     const pick = DRAFT_ELIGIBLE_TEAMS[Math.floor(Math.random() * DRAFT_ELIGIBLE_TEAMS.length)];
     saveData.career.teamKey = pick;
     const teamLabel = TEAM_MASCOTS[pick].mascot.toUpperCase();
@@ -180,54 +144,41 @@ function createRenderCore(canvasEl) {
     saveGame(saveData);
   }
 
-  /**
-   * Advances to the next run (or restarts the same one on a stop), applying
-   * whatever Smart Play call was selected (or defaulted) for the run that's
-   * about to start, and persists progress via save.js.
-   * @param {boolean} advance - true on a touchdown, false on a tackle (retry)
-   */
   function startNextPhysicsWorld(advance) {
     if (advance) {
       currentChapterIndex = Math.min(CAREER_RUNS.length - 1, currentChapterIndex + 1);
       saveData.career.chaptersCompleted = currentChapterIndex;
       maybeRunDraft();
-      saveGame(saveData); // persist on every advance — cheap, frequent checkpoint
+      saveGame(saveData);
     }
-    const callId = getDefaultSmartPlay(smartPlayState); // ensures a call is always chosen
+    const callId = getDefaultSmartPlay(smartPlayState);
     physicsWorld = createPhysicsWorld(currentChapterIndex, saveData.gear.equipped, abilityController, callId, saveData);
-    physicsWorld.player.teamKey = saveData.career.teamKey; // carry the drafted team into the new run
+    physicsWorld.player.teamKey = saveData.career.teamKey;
     smartPlayState.pendingCallId = null;
   }
 
   function updateAll(dtSec) {
     stateManager.update(dtSec);
-
-    // --- The field NEVER stops rolling, in ANY state. This is the literal
-    // "keep the runner running with the field still rolling" behavior —
-    // scene.update() (grass scroll) and the player's idle run-cycle bob
-    // both keep animating even while physics.js itself is frozen during
-    // BETWEEN_PLAYS/SKILL_MENU. Only distance/collision/defender movement
-    // actually pause. -----------------------------------------------------
     sceneRenderer.update(dtSec);
-    physicsWorld.player.runCyclePhase += dtSec * 6; // slow idle bob when not actively running
+    physicsWorld.player.runCyclePhase += dtSec * 6;
+
     layerManager.markDirty('scene');
     layerManager.markDirty('player');
-    layerManager.markDirty('overlay'); // cheap no-op draw when inactive, live countdown when active
-    layerManager.markDirty('menu');    // same pattern — no-op unless MENU or career-complete GAME_OVER
+    layerManager.markDirty('overlay');
+    layerManager.markDirty('menu');
 
     if (stateManager.current === GAME_STATES.PLAYING) {
       const result = physicsWorld.update(dtSec);
       layerManager.markDirty('defenders');
 
       if (result.ended) {
-        const { eventResult, storyOutcome, performanceTier } = result.resultPayload;
+        const { eventResult, storyOutcome } = result.resultPayload;
         stateManager.logPlay(eventResult.logMessage);
         stateManager.logPlay(storyOutcome);
         applyRewardsToSave(eventResult);
 
         const isFinalRun = currentChapterIndex === CAREER_RUNS.length - 1;
         if (isFinalRun && result.reason === 'touchdown') {
-          // Career complete — Run 12 (Hall of Fame Game) finished with a TD.
           saveData.career.careerComplete = true;
           saveGame(saveData);
           stateManager.careerComplete = true;
@@ -239,20 +190,20 @@ function createRenderCore(canvasEl) {
       }
     }
 
-    // Auto-resume from BETWEEN_PLAYS applies the (possibly-default) Smart
-    // Play call the moment PLAYING resumes, via game-state.js's own
-    // play-clock countdown — see game-state.js:update().
     if (stateManager.current !== GAME_STATES.PLAYING) {
-      getDefaultSmartPlay(smartPlayState); // ensures a call is always set before resuming
+      getDefaultSmartPlay(smartPlayState);
     }
   }
 
   function renderAll() {
-    layerManager.processDirtyQueue();   // redraw only what's dirty, into offscreen canvases
-    layerManager.compositeAll(mainCtx); // cheap blit of all layers onto the visible canvas
+    if (resizePending) applyCanvasSize();
+    layerManager.processDirtyQueue();
+    layerManager.compositeAll(mainCtx);
   }
 
   function loop(now) {
+    if (resizePending) applyCanvasSize();
+
     const frameTime = Math.min(now - lastTime, 250);
     lastTime = now;
     accumulator += frameTime;
@@ -268,31 +219,38 @@ function createRenderCore(canvasEl) {
     requestAnimationFrame(loop);
   }
 
+  function handleResize() {
+    resizePending = true;
+  }
+
+  window.addEventListener('resize', handleResize, { passive: true });
+  window.addEventListener('orientationchange', handleResize, { passive: true });
+
   return {
-    mainCtx, stateManager, projection, sceneRenderer, spriteLoader, layerManager,
-    overlayUI, smartPlayState, abilityController, audioSystem,
+    get mainCtx() { return mainCtx; },
+    stateManager,
+    projection,
+    sceneRenderer,
+    spriteLoader,
+    layerManager,
+    overlayUI,
+    smartPlayState,
+    abilityController,
+    audioSystem,
     get world() { return { player: physicsWorld.player, defenders: physicsWorld.spawner.pool }; },
     get physicsWorld() { return physicsWorld; },
-    /**
-     * Forwards a tap to whichever overlay is currently active. Returns true
-     * if the overlay consumed the tap (so the caller — index.html's pointer
-     * handler — knows not to treat it as a lane-swipe instead).
-     * @param {number} x canvas-space x
-     * @param {number} y canvas-space y
-     * @returns {boolean}
-     */
+
     handleOverlayTap(x, y) {
       if (stateManager.current === GAME_STATES.MENU) {
         if (menuScreens.handleMainMenuTap(x, y)) {
-          audioSystem.unlock(); // first real user gesture — safe point to unlock WebAudio
+          audioSystem.unlock();
           stateManager.transitionTo(GAME_STATES.PLAYING);
           return true;
         }
         return false;
       }
       if (stateManager.current === GAME_STATES.GAME_OVER && stateManager.careerComplete) {
-        if (menuScreens.handleMainMenuTap(x, y)) { // reuses the same button-rect tracking
-          // NEW CAREER — full reset
+        if (menuScreens.handleMainMenuTap(x, y)) {
           Object.assign(saveData, createDefaultSave());
           saveGame(saveData);
           currentChapterIndex = 0;
@@ -314,7 +272,7 @@ function createRenderCore(canvasEl) {
       if (stateManager.current === GAME_STATES.SKILL_MENU) {
         const result = overlayUI.handleGearTap(x, y, saveData);
         if (result === 'DONE') {
-          saveGame(saveData); // persist gear changes the moment the player confirms
+          saveGame(saveData);
           stateManager.transitionTo(GAME_STATES.BETWEEN_PLAYS);
           return true;
         }
@@ -322,14 +280,34 @@ function createRenderCore(canvasEl) {
       }
       return false;
     },
-    /**
-     * Loads all manifest assets, THEN shows the main menu (does NOT
-     * auto-start PLAYING anymore — the player has to actually tap
-     * Start/Continue, a real deliberate front door instead of a forced skip).
-     * @returns {Promise<void>}
-     */
+
     async start() {
       await spriteLoader.loadAll();
+      layerManager.createLayer('scene', 0, (ctx) => {
+        sceneRenderer.render(ctx);
+      });
+      layerManager.createLayer('defenders', 1, (ctx) => {
+        defenderRenderer.render(ctx, physicsWorld.spawner.pool, projection);
+      });
+      layerManager.createLayer('player', 2, (ctx) => {
+        playerRenderer.render(ctx, physicsWorld.player, projection);
+      });
+      layerManager.createLayer('overlay', 3, (ctx) => {
+        if (stateManager.current === GAME_STATES.BETWEEN_PLAYS) {
+          overlayUI.render(ctx, smartPlayState, stateManager.clock.playClockRemaining);
+        } else if (stateManager.current === GAME_STATES.SKILL_MENU) {
+          overlayUI.renderGearScreen(ctx, saveData);
+        }
+      });
+      layerManager.createLayer('menu', 4, (ctx) => {
+        if (stateManager.current === GAME_STATES.MENU) {
+          menuScreens.renderMainMenu(ctx, saveData);
+        } else if (stateManager.current === GAME_STATES.GAME_OVER && stateManager.careerComplete) {
+          menuScreens.renderCareerComplete(ctx, saveData);
+        }
+      });
+
+      resizePending = true;
       stateManager.transitionTo(GAME_STATES.MENU);
       lastTime = performance.now();
       requestAnimationFrame(loop);
